@@ -1,0 +1,44 @@
+machine:
+  java:
+    version: oraclejdk8
+  services:
+    - docker
+
+dependencies:
+  pre:
+	# Install sbt 0.13.7 (via tee to account for sudo madness)
+	- echo "deb http://dl.bintray.com/sbt/debian /" | sudo tee -a /etc/apt/sources.list.d/sbt.list
+	- sudo apt-get update && sudo apt-get install sbt
+	override:
+	- sbt ";test:compile ;it:compile"
+
+
+
+deployment:
+	
+  dev: 
+    branch: master
+    commands:
+      - sbt assembly
+      - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS quay.io
+      - docker build -t="quay.io/ntoggle/itc:master" .
+      - docker push quay.io/ntoggle/itc:master
+      - curl -k --data "host_config_key=${ANSIBLE_HOST_KEY}" https://circleci:${ANSIBLE_PASS}@184.173.168.34:443/api/v1/job_templates/76/launch/
+
+  staging: 
+    branch: integration
+    commands:
+      - sbt assembly
+      - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS quay.io
+      - docker build -t="quay.io/ntoggle/itc:integration" .
+      - docker push quay.io/ntoggle/itc:integration
+      - curl -k --data "host_config_key=${ANSIBLE_HOST_KEY}" https://circleci:${ANSIBLE_PASS}@184.173.168.34:443/api/v1/job_templates/77/launch/
+
+  unknown:
+    branch: staging
+    commands:
+      - sbt assembly
+      - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS quay.io
+      - docker build -t="quay.io/ntoggle/itc:staging" .
+      - docker push quay.io/ntoggle/itc:staging
+	
